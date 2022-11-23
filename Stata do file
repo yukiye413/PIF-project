@@ -1,0 +1,248 @@
+use "PIF 20220916.dta", clear
+tab Arm Testingplace
+label define testingplace 1 "CDC" 2 "CBO"
+label values Testingplace testingplace
+ tab Arm Testingplace
+ 
+
+// CONVERT EL_DOB TO A STATA NUMERIC DATE VARIABLE
+gen age = 2022- DOB
+sum age,detail
+*******************************************************************************************
+************************** Paticipants characteristics ************************************
+
+**age 
+preserve
+keep if Testingplace==1 
+bysort Arm: sum age, detail 
+ranksum age, by(Arm)
+restore
+preserve
+keep if Testingplace==2 
+bysort Arm: sum age, detail 
+ranksum age, by(Arm)
+restore
+
+**HIV Status ***
+tab HIVstatus Arm, col missing
+bysort Testingplace: tab HIVstatus Arm, col missing
+tab HIVstatus Arm, col chi exact
+bysort Testingplace: tab HIVstatus Arm, col chi exact
+
+**education ***
+tab education Arm, col missing
+bysort Testingplace: tab education Arm, col missing
+tab education Arm, col chi exact
+bysort Testingplace: tab education Arm, col chi exact
+
+**marriage ***
+tab marriage Arm, col missing
+bysort Testingplace: tab marriage Arm, col missing
+tab marriage Arm, col chi exact
+bysort Testingplace: tab marriage Arm, col chi exact
+
+** employee***
+gen employee=0 if job==1|job== 9 
+replace employee=1 if employee ~=0
+
+tab employee Arm, col missing
+bysort Testingplace: tab employee Arm, col missing
+tab employee Arm, col chi exact
+bysort Testingplace: tab employee Arm, col chi exact
+
+gen student=1 if job==1
+replace student=0 if student ~=1
+
+tab student Arm, col missing
+bysort Testingplace: tab student Arm, col missing
+tab student Arm, col chi exact
+bysort Testingplace: tab student Arm, col chi exact
+
+** salary***
+tab income Arm, col missing
+bysort Testingplace: tab income Arm, col missing
+tab income Arm, col chi exact
+bysort Testingplace: tab income Arm, col chi exact
+
+** Sexual Orientation 
+gen sexualnew=sexual
+replace sexualnew=3 if sexual==4
+
+gen homosexual=1 if sexual==1
+replace homosexual=0 if homosexual~=1
+
+tab homosexual Arm, col missing
+bysort Testingplace: tab homosexual Arm, col missing
+tab homosexual Arm, col chi exact
+bysort Testingplace: tab homosexual Arm, col chi exact
+
+** participants who used drugs ****
+tab unodrug Arm, col missing
+bysort Testingplace: tab unodrug Arm, col missing
+tab unodrug Arm, col chi exact
+bysort Testingplace: tab unodrug Arm, col chi exact
+
+*** Condomless anal sex in the past three months ***
+tab claic Arm, col missing
+bysort Testingplace: tab claic Arm, col missing
+tab claic Arm, col chi exact
+bysort Testingplace: tab claic Arm, col chi exact
+
+*** Number of condomless anal sex in the past three months ***
+gen multip=0 if nspartner==0 | nspartner==1
+replace multip=1 if multip~=0
+
+tab multip Arm, col missing
+bysort Testingplace: tab multip Arm, col missing
+tab multip Arm, col chi exact
+bysort Testingplace: tab multip Arm, col chi exact
+
+*** Tested for hepatitis in the last 12 months ***
+
+tab HBVevertest Arm, col missing
+bysort Testingplace: tab HBVevertest Arm, col missing
+tab HBVevertest Arm, col chi exact
+bysort Testingplace: tab HBVevertest Arm, col chi exact
+
+tab HCVevertest Arm, col missing
+bysort Testingplace: tab HCVevertest Arm, col missing
+tab HCVevertest Arm, col chi exact
+bysort Testingplace: tab HCVevertest Arm, col chi exact
+
+****Vaccine HBV before *****
+tab HBVvaccine Arm, col missing
+bysort Testingplace: tab HBVvaccine Arm, col missing
+tab HBVevertest Arm, col chi exact
+bysort Testingplace: tab HBVvaccine Arm, col chi exact
+
+
+******************************************************************************
+** regression analysis- Compare two arms ****
+
+*Overall 
+tab HBVtest, gen(HVtest)
+tab HBVtest Arm, col missing
+glm HVtest1 ib2.Arm, fam(binomial) link(logit) eform
+
+xtset newcluster
+xtgee HVtest1 ib2.Arm education_c3 education_c4 income_c3 income_c4 marriage age Testingplace HBVvaccine, family(binomial) link(identity)  vce(robust) corr(exchangeable) level(90)
+
+test 2.Arm-1.Arm=.2
+
+di normal(-sqrt(e(chi2)))
+
+icc loneway HVtest1 newcluster
+
+*CDC
+preserve
+keep if Testingplace==1 
+tab HBVtest Arm, col missing
+
+xtset newcluster
+xtgee HVtest1 ib2.Arm age education_c4 income_c4, family(binomial) link(identity)  vce(robust) corr(exchangeable) level(90) 
+
+test 2.Arm-1.Arm=.2
+
+di normal(-sqrt(e(chi2)))
+
+icc loneway HVtest1 newcluster
+restore
+
+*CBO
+preserve
+keep if Testingplace==2
+tab HBVtest Arm, col missing
+xtset newcluster
+xtgee HVtest1 ib2.Arm age education_c4 income_c4, family(binomial) link(identity)  vce(robust) corr(exchangeable) level(90) 
+
+test 2.Arm-1.Arm=.2
+
+di normal(-sqrt(e(chi2)))
+
+icc loneway HVtest1 cluster
+restore
+
+*age >30
+gen cage=.
+replace cage=1 if age>30
+replace cage=0 if cage~=1
+ 
+preserve
+keep if cage==1
+tab HBVtest Arm, col missing
+xtset newcluster
+xtgee HVtest1 ib2.Arm education_c4 income_c4 Testingplace, family(binomial) link(identity)  vce(robust) corr(exchangeable) level(90) 
+
+test 2.Arm-1.Arm=.2
+
+di normal(-sqrt(e(chi2)))
+
+icc loneway HVtest1 newcluster
+restore
+
+*participants who used drugs
+preserve  
+keep if unodrug==2 
+tab HBVtest Arm, col missing
+tab HBVtest Arm, col missing
+xtset newcluster
+xtgee HVtest1 ib2.Arm age, family(binomial) link(identity) vce(robust) corr(exchangeable) level(90) 
+
+test 2.Arm-1.Arm=.2
+di normal(-sqrt(e(chi2)))
+icc loneway HVtest1 newcluster
+restore
+
+*participants who had risk sexual behaviours
+gen sexualrisk1=.
+replace sexualrisk1=1 if claic==1 | multip==1 
+replace sexualrisk1=0 if sexualrisk1~=1
+ 
+
+preserve  
+keep if sexualrisk1==1 
+tab HBVtest Arm, col missing
+xtset newcluster
+xtgee HVtest1 ib2.Arm age education_c4 income_c4 Testingplace, family(binomial) link(identity)  vce(robust) corr(exchangeable) level(90) 
+test 2.Arm-1.Arm=.2
+di normal(-sqrt(e(chi2)))
+icc loneway HVtest1 newcluster
+
+
+*****************************************************************************************
+** HCV & HBV result
+gen HCVresult_1=HCVresult
+replace HCVresult_1=3 if HCVtest==2
+
+gen HBVresult_1=HBVresult
+replace HBVresult_1=3 if HBVtest==2
+
+preserve 
+drop if HBVresult_1==3
+tab HBVresult_1 Arm, col
+restore
+
+preserve 
+drop if HCVresult_1==3
+tab HCVresult_1 Arm, col
+restore
+
+
+*****************************************************************************
+***donation situation (PIF arm)
+preserve 
+keep if Arm==1
+tab donation, col missing
+tab donation Testingplace, col missing
+
+*******gof of model**********************
+predict phat, mu
+xtile decile = phat, nq(10)
+collapse (sum) observed = var1 predicted = phat, by(decile)
+gen chi2_component = (observed-predicted)^2/predicted
+summ chi2_component, meanonly
+display "H-L chi2 = " as result %3.2f `r(sum)'
+display "p-value = " chi2tail(8,`r(sum)')
+
+
+
